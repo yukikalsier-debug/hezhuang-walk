@@ -507,26 +507,6 @@
       if (spotParam && HEZHUANG_SPOTS[spotParam]) {
         currentSpotId = spotParam;
       }
-
-      // 渲染歷年相簿
-const galleryContainer = document.getElementById('spot-gallery-container');
-const galleryList = document.getElementById('spot-gallery-list');
-const galleryCount = document.getElementById('gallery-count');
-
-if (spot.gallery && spot.gallery.length > 0) {
-  galleryContainer.style.display = 'block';
-  galleryCount.textContent = `共 ${spot.gallery.length} 張`;
-  galleryList.innerHTML = spot.gallery.map(item => `
-    <div class="flex-shrink-0 w-48 space-y-1.5 group cursor-pointer">
-      <div class="w-48 h-32 rounded-xl overflow-hidden bg-stone-100 shadow-sm border border-stone-200">
-        <img src="${item.img}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="${item.caption || '活動照片'}" loading="lazy">
-      </div>
-      <p class="text-xs text-stone-600 font-medium truncate px-1">${item.caption || ''}</p>
-    </div>
-  `).join('');
-} else {
-  if (galleryContainer) galleryContainer.style.display = 'none';
-}
       // 2. 渲染景點切換 Pills
       renderSpotPills();
 
