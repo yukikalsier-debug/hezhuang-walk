@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>何庄社區散步地圖 | 走讀遷村記憶與聚落人情</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            clay: {
+              50: '#FDF8F5',
+              100: '#F9EEE7',
+              200: '#F1D6C5',
+              600: '#B85834',
+              700: '#944122',
+              800: '#753218',
+            },
+            amberwood: '#D97706',
+            sage: '#4F772D',
+            ricepaper: '#FCFAF7',
+          },
+          fontFamily: {
+            sans: ['"Noto Serif TC"', '"PingFang TC"', '"Microsoft JhengHei"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Noto Serif TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Phosphor Icons for clean rural heritage aesthetics -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #F8F5F0;
+      color: #2D2926;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .serif-title {
+      font-family: 'Noto Serif TC', serif;
+    }
+    /* Custom Map styling */
+    .leaflet-popup-content-wrapper {
+      border-radius: 1rem;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+    }
+    .leaflet-popup-content {
+      margin: 0;
+      line-height: 1.4;
+    }
+    /* Comparison Slider Range input reset */
+    .compare-slider input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      outline: none;
+    }
+    .compare-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #B85834;
+      border: 3px solid #ffffff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      cursor: ew-resize;
+    }
+    /* Smooth Transitions */
+    .view-transition {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    /* Custom Scrollbar for drawers */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-[#FAF7F2] text-stone-800 antialiased min-h-screen flex flex-col justify-between selection:bg-clay-200 selection:text-clay-800">
+
+  <!-- ================= TOP NAVIGATION BAR ================= -->
+  <header class="sticky top-0 z-40 bg-[#FAF7F2]/90 backdrop-blur-md border-b border-stone-200/80 px-4 py-3 transition-shadow">
+    <div class="max-w-xl mx-auto flex items-center justify-between">
+      <a href="#" onclick="switchView('spot'); return false;" class="flex items-center gap-2 group">
+        <div class="w-9 h-9 rounded-full bg-clay-600 text-amber-50 flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+          何
+        </div>
+        <div>
+          <h1 class="serif-title font-bold text-stone-900 text-base tracking-wide flex items-center gap-1.5">
+            何庄社區散步地圖
+            <span class="text-[10px] font-normal px-2 py-0.5 rounded-full bg-amber-100 text-clay-700 border border-amber-200">
+              嘉義市西區
+            </span>
+          </h1>
+          <p class="text-[11px] text-stone-500">民國46年水上機場遷村記憶聚落</p>
+        </div>
+      </a>
+
+      <!-- Quick toggle map view icon -->
+      <button id="navMapBtn" onclick="toggleView()" class="px-3 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 border border-stone-200/90 text-stone-700 text-xs font-medium flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+        <i class="ph ph-map-trifold text-base text-clay-600" id="navIcon"></i>
+        <span id="navText">全區地圖</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN CONTAINER ================= -->
+  <main class="max-w-xl mx-auto w-full flex-1 px-4 py-4 pb-24">
+
+    <!-- ================= VIEW 1: SPOT DETAIL VIEW (QR Code Landing) ================= -->
+    <section id="spotDetailView" class="view-transition block space-y-5">
+      
+      <!-- Spot Selector Pills (For easy browsing on demo) -->
+      <div class="overflow-x-auto no-scrollbar flex items-center gap-2 py-1 -mx-1 px-1">
+        <span class="text-xs font-bold text-stone-400 shrink-0">景點快速切換：</span>
+        <div id="spotPills" class="flex gap-2 shrink-0">
+          <!-- Dynamic Pills will render here -->
+        </div>
+      </div>
+
+      <!-- Hero Card Container -->
+      <article class="bg-white rounded-3xl overflow-hidden border border-stone-200/90 shadow-sm shadow-stone-200/40">
+        
+        <!-- Hero Media Header (Image with badges) -->
+        <div class="relative w-full aspect-[4/3] bg-stone-100 overflow-hidden">
+          <img id="spotCoverImg" src="" alt="景點相片" class="w-full h-full object-cover transition-all duration-700">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+          
+          <!-- Category & Audio indicator tags -->
+          <div class="absolute top-3.5 left-3.5 flex flex-wrap gap-2">
+            <span id="spotBadge" class="bg-clay-600/90 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium shadow-sm flex items-center gap-1">
+              <i class="ph ph-footprints"></i>
+              <span id="spotBadgeText">聚落生活記憶</span>
+            </span>
+            <span id="audioBadge" class="bg-black/40 backdrop-blur-sm text-amber-200 text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+              <i class="ph ph-speaker-high"></i>
+              <span>語音導覽</span>
+            </span>
+          </div>
+
+          <!-- Spot Title overlay on image bottom -->
+          <div class="absolute bottom-4 left-4 right-4 text-white">
+            <p id="spotSubtitle" class="text-xs text-amber-200/90 tracking-wider uppercase font-semibold">Hezhuang Heritage Spot #01</p>
+            <h2 id="spotTitle" class="serif-title text-2xl font-bold tracking-tight mt-0.5 drop-shadow-sm">阿雲柑仔店</h2>
+          </div>
+        </div>
+
+        <!-- Card Body Content -->
+        <div class="p-5 space-y-6">
+
+          <!-- Spot Highlight / One Liner -->
+          <div class="bg-amber-50/70 border-l-4 border-clay-600 p-3.5 rounded-r-xl">
+            <p id="spotHighlight" class="text-sm font-medium text-clay-800 leading-relaxed">
+              「近百年古厝構件拆遷重組，一磚一瓦守護三代人的鹹酸甜與鄰里溫情。」
+            </p>
+          </div>
+
+          <!-- Audio Guide Mockup Player -->
+          <div class="bg-stone-50 border border-stone-200/70 rounded-2xl p-4 shadow-inner">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full bg-clay-100 text-clay-700 flex items-center justify-center">
+                  <i class="ph ph-waveform text-sm"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-stone-800">何庄耆老口述音訊</h4>
+                  <p class="text-[10px] text-stone-500">長輩台語/國語口述遷村始末</p>
+                </div>
+              </div>
+              <span id="audioTimer" class="text-xs font-mono text-stone-500">01:42</span>
+            </div>
+
+            <!-- Fake Waveform Progress bar -->
+            <div class="w-full bg-stone-200 h-2 rounded-full overflow-hidden relative cursor-pointer" onclick="toggleAudioDemo()">
+              <div id="audioProgress" class="bg-clay-600 h-full w-1/3 rounded-full transition-all duration-300"></div>
+            </div>
+
+            <div class="flex items-center justify-between mt-3 text-xs text-stone-600">
+              <button onclick="toggleAudioDemo()" id="audioPlayBtn" class="flex items-center gap-1.5 font-medium text-clay-700 hover:text-clay-800 bg-white border border-stone-200 px-3 py-1 rounded-full shadow-sm">
+                <i class="ph ph-play-fill text-sm" id="audioBtnIcon"></i>
+                <span id="audioBtnText">聆聽長輩說故事</span>
+              </button>
+              <span class="text-[11px] text-stone-400">現場錄音 • 原汁原味</span>
+            </div>
+          </div>
+
+          <!-- Interactive Before & After Photo Comparison (今昔對照) -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="serif-title font-bold text-stone-900 text-sm flex items-center gap-1.5">
+                <i class="ph ph-camera-rotate text-clay-600"></i>
+                今昔光影對照
+              </h3>
+              <span class="text-[11px] text-stone-400">左右滑動以對比歲月痕跡</span>
+            </div>
+
+            <!-- Compare Slider Box -->
+            <div class="relative w-full aspect-[16/10] rounded-2xl overflow-hidden shadow-sm select-none compare-slider border border-stone-200">
+              <!-- After (Present Day) Image -->
+              <img id="comparePresentImg" src="https://images.unsplash.com/photo-1596178065887-1198b6148b2b?auto=format&fit=crop&w=1000&q=80" alt="現況" class="absolute inset-0 w-full h-full object-cover">
+              <span class="absolute bottom-2.5 right-3 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded pointer-events-none z-10">現況 (2020s)</span>
+
+              <!-- Before (Old Archives) Image Container (clipped by width) -->
+              <div id="compareOldContainer" class="absolute inset-0 overflow-hidden w-1/2 border-r-2 border-white shadow-xl z-10">
+                <img id="compareOldImg" src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80" alt="民國遷村昔日照" class="absolute inset-0 w-full h-full object-cover filter grayscale contrast-125 max-w-none">
+                <span class="absolute bottom-2.5 left-3 bg-amber-900/80 backdrop-blur-sm text-amber-100 text-[10px] px-2 py-0.5 rounded pointer-events-none">昔日記憶 (約民國46年)</span>
+              </div>
+
+              <!-- Draggable Range Slider Element -->
+              <input type="range" min="0" max="100" value="50" id="compareRange" class="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20" oninput="updateComparison(this.value)">
+              
+              <!-- Center Divider Handle Visual Indicator -->
+              <div id="compareHandle" class="absolute top-0 bottom-0 pointer-events-none z-10 flex items-center justify-center -translate-x-1/2 left-1/2">
+                <div class="w-8 h-8 rounded-full bg-clay-600 text-white border-2 border-white flex items-center justify-center shadow-lg">
+                  <i class="ph ph-caret-left-right text-sm"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Historical Narrative Story Body -->
+          <div class="space-y-3 pt-1">
+            <h3 class="serif-title font-bold text-stone-900 text-base border-b border-stone-100 pb-2 flex items-center justify-between">
+              <span>聚落微故事</span>
+              <span class="text-xs font-normal text-stone-400">閱讀約需 1 分鐘</span>
+            </h3>
+            
+            <div id="spotStoryContent" class="text-stone-700 text-sm leading-relaxed space-y-3 text-justify">
+              <!-- Story Paragraphs inserted here -->
+            </div>
+          </div>
+
+          <!-- Spot Meta Details (Location, opening hours if applicable) -->
+          <div class="bg-stone-50 rounded-2xl p-4 border border-stone-200/60 text-xs space-y-2">
+            <div class="flex items-start gap-2 text-stone-600">
+              <i class="ph ph-map-pin text-clay-600 text-sm mt-0.5 shrink-0"></i>
+              <div>
+                <span class="font-bold text-stone-800">位置指南：</span>
+                <span id="spotAddress">嘉義市西區何庄里育人路周邊</span>
+              </div>
+            </div>
+            <div class="flex items-start gap-2 text-stone-600">
+              <i class="ph ph-clock text-clay-600 text-sm mt-0.5 shrink-0"></i>
+              <div>
+                <span class="font-bold text-stone-800">參訪叮嚀：</span>
+                <span id="spotTip">社區為常民生活聚落，漫步時請放輕腳步，共同維護寧靜氛圍。</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons Group -->
+          <div class="grid grid-cols-2 gap-3 pt-2">
+            <!-- Open Community Map -->
+            <button onclick="switchView('map')" class="w-full bg-clay-600 hover:bg-clay-700 text-white font-medium py-3 px-3 rounded-2xl flex items-center justify-center gap-1.5 shadow-md shadow-clay-600/20 active:scale-[0.98] transition-all text-sm">
+              <i class="ph ph-map-trifold text-lg"></i>
+              <span>開啟全區地圖</span>
+            </button>
+            
+            <!-- External Google Navigation -->
+            <a id="googleNavBtn" href="#" target="_blank" rel="noopener noreferrer" class="w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-medium py-3 px-3 rounded-2xl flex items-center justify-center gap-1.5 border border-stone-200 active:scale-[0.98] transition-all text-sm">
+              <i class="ph ph-navigation-arrow text-clay-700 text-lg"></i>
+              <span>導航前往此處</span>
+            </a>
+          </div>
+
+        </div>
+      </article>
+
+      <!-- Neighborhood exploration suggestion / Next Spot -->
+      <div class="bg-amber-100/60 rounded-2xl p-4 border border-amber-200/80 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white text-clay-600 flex items-center justify-center shadow-sm">
+            <i class="ph ph-arrow-bend-right-up text-xl font-bold"></i>
+          </div>
+          <div>
+            <p class="text-[11px] text-stone-500 font-medium">散步下一站建議</p>
+            <h4 id="nextSpotTitle" class="text-sm font-bold text-stone-800">何庄遷村紀念廣場</h4>
+          </div>
+        </div>
+        <button id="nextSpotBtn" onclick="nextSpot()" class="px-3 py-1.5 bg-white text-clay-700 border border-amber-300 text-xs font-semibold rounded-xl hover:bg-amber-50 active:scale-95 transition-all">
+          前往瞧瞧
+        </button>
+      </div>
+
+    </section>
+
+
+    <!-- ================= VIEW 2: INTERACTIVE LEAFLET MAP VIEW ================= -->
+    <section id="fullMapView" class="view-transition hidden space-y-4">
+      
+      <!-- Map Header & Filter Chips -->
+      <div class="bg-white rounded-2xl p-3 border border-stone-200 shadow-sm space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <i class="ph ph-compass text-clay-600 text-lg"></i>
+            <span class="text-xs font-bold text-stone-800">何庄聚落漫步航線</span>
+          </div>
+          <button onclick="locateUser()" class="text-xs text-clay-700 hover:text-clay-800 flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+            <i class="ph ph-crosshair text-sm"></i>
+            <span>我的目前位置</span>
+          </button>
+        </div>
+
+        <!-- Category Filter Buttons -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+          <button onclick="filterMapCategory('all')" class="cat-pill active px-3 py-1 rounded-full text-xs font-medium bg-clay-600 text-white">全部景點</button>
+          <button onclick="filterMapCategory('遷村歷史')" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-600 hover:bg-stone-200">遷村歷史</button>
+          <button onclick="filterMapCategory('常民聚落')" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-600 hover:bg-stone-200">常民聚落</button>
+          <button onclick="filterMapCategory('田園漫步')" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-600 hover:bg-stone-200">田園風光</button>
+        </div>
+      </div>
+
+      <!-- Leaflet Map Canvas -->
+      <div class="relative w-full h-[62vh] rounded-3xl overflow-hidden border border-stone-200 shadow-inner bg-stone-100">
+        <div id="map" class="w-full h-full z-10"></div>
+        
+        <!-- Walking route info floating box -->
+        <div class="absolute top-3 left-3 z-20 bg-white/90 backdrop-blur-md px-3 py-2 rounded-xl border border-stone-200/80 shadow-md flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-xs font-medium text-stone-700">建議路線：約 1.8 公里 (步行約 28 分鐘)</span>
+        </div>
+
+        <!-- Back to Single Spot Card Float Button -->
+        <div class="absolute bottom-4 left-4 right-4 z-20">
+          <div id="selectedSpotMiniCard" class="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-stone-200 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <img id="miniCardImg" src="" alt="" class="w-12 h-12 rounded-xl object-cover border border-stone-200">
+              <div>
+                <p id="miniCardCategory" class="text-[10px] text-clay-600 font-bold uppercase tracking-wider">點選標記查看</p>
+                <h4 id="miniCardTitle" class="text-sm font-bold text-stone-900">點擊地圖上的圖釘</h4>
+              </div>
+            </div>
+            <button id="miniCardAction" onclick="viewMiniCardSpot()" class="px-3 py-1.5 bg-clay-600 text-white text-xs font-medium rounded-xl hover:bg-clay-700 transition-colors shrink-0">
+              閱讀故事
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom return switch -->
+      <div class="text-center pt-2">
+        <button onclick="switchView('spot')" class="text-xs font-medium text-stone-500 hover:text-clay-700 inline-flex items-center gap-1">
+          <i class="ph ph-arrow-left"></i>
+          返回景點詳情頁面
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= PERSISTENT BOTTOM COMMUNITY FOOTER ================= -->
+  <footer class="bg-white border-t border-stone-200 py-4 px-4 text-center text-xs text-stone-500 space-y-1.5">
+    <div class="max-w-xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5 text-stone-700 font-medium">
+        <span class="w-2 h-2 rounded-full bg-clay-600"></span>
+        何庄社區發展協會 • 遷村記憶散步地圖
+      </div>
+      <div class="text-[11px] text-stone-400">
+        建議開啟 GPS 獲得最佳體驗
+      </div>
+    </div>
+    <p class="text-[11px] text-stone-400">
+      此靜態網頁支援 QR Code 掃描參數連結（如 ?spot=ayun-grocery）可直接免費託管於 GitHub Pages / Vercel
+    </p>
+  </footer>
+
+  <!-- ================= INLINE JAVASCRIPT LOGIC ================= -->
+  <script>
+    /**
+     * 何庄社區各景點故事資料庫
+     * 支援透過 URL 參數 ?spot=ID 達成現場個別 QR Code 直達頁面
+     */
+    const HEZHUANG_SPOTS = {
+      'ayun-grocery': {
+        id: 'ayun-grocery',
+        title: '阿雲柑仔店',
+        subtitle: 'Hezhuang Grocery & Memory #01',
+        category: '常民聚落',
+        badgeText: '一甲子柑仔店',
+        highlight: '「近百年古厝構件拆遷重組，一磚一瓦守護三代人的鹹酸甜與鄰里溫情。」',
+        audioTimer: '01:48',
+        lat: 23.4735,
+        lng: 120.4282,
+        coverImg: 'https://images.unsplash.com/photo-1596178065887-1198b6148b2b?auto=format&fit=crop&w=1200&q=80',
+        oldImg: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&q=80',
+        storyParagraphs: [
+          '推開低矮木造屏門，鼻尖飄來的是古早味肉醬罐頭、蜜餞乾與老木架的質樸氣息。阿雲柑仔店不僅是一家雜貨店，更是何庄遷村以來最堅韌的集體記憶樞紐。',
+          '民國46年，為了水上機場擴建國防需求，原本世居機場跑道南側的何庄庄民被迫集體遷村至現址。當時家家戶戶互助拆解老家一磚一木，阿雲阿嬤的長輩也將舊三合院老屋的檜木樑柱、舊紅磚仔細編號打包，搬到現址重新組裝成如今的雜貨店角落。',
+          '過去農業時代沒有電話與便利超商，誰家缺了油鹽醬醋、田間誰需要送水、甚至村里的大小公事通知，都在阿雲柑仔店的長條木凳上一一傳遞。至今依然保留著昔日的木造糖果櫃，成為旅人走進何庄時光的第一站。'
+        ],
+        address: '嘉義市西區何庄里育人路社區聚落內',
+        tip: '老店仍為阿嬤與家人日常生活空間，拍照前請禮貌向主人打聲招呼喔！',
+        nextSpotId: 'relocation-memorial'
+      },
+      'relocation-memorial': {
+        id: 'relocation-memorial',
+        title: '何庄遷村紀念牆與集會角',
+        subtitle: 'Village Relocation Memory 1957',
+        category: '遷村歷史',
+        badgeText: '建庄一甲子歷史',
+        highlight: '「從水上機場跑道上的金色稻穗，到全庄手牽手在荒地上拔地而起的新家園。」',
+        audioTimer: '02:15',
+        lat: 23.4728,
+        lng: 120.4271,
+        coverImg: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=1200&q=80',
+        oldImg: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80',
+        storyParagraphs: [
+          '民國46年間，隨著水上機場擴充跑道工程推展，原本祖輩耕耘的肥沃農地與土角厝劃入了國防禁區。在政府一紙令下，全村庄民攜老扶幼配合大局遷徙。',
+          '紀念牆上刻印著當年老何庄的舊地圖與老照片：早年庄民曾被特許在空曠跑道旁曬穀、在晨曦中趁著軍機起降空檔撿拾枯枝防風林作為爐灶柴火。遷村之後，全庄發揮同甘共苦的互助精神，換工整地、合力起造紅磚厝。',
+          '這座紀念角落記錄了何庄人不向命運低頭的堅毅，是每位走進聚落的後代與遊客必訪的文化地標。'
+        ],
+        address: '嘉義市何庄里活動中心西側紀念廊道',
+        tip: '牆面老照片附有掃描語音二維碼，黃昏時光線柔和極適合靜思走讀。',
+        nextSpotId: 'community-center'
+      },
+      'community-center': {
+        id: 'community-center',
+        title: '何庄社區活動中心與長輩共餐堂',
+        subtitle: 'Community Center & Care Hub',
+        category: '常民聚落',
+        badgeText: '人情味樞紐',
+        highlight: '「一週五日的飯菜香，長輩們在這裡下棋、唱歌，延續老庄民緊密的共生情感。」',
+        audioTimer: '01:10',
+        lat: 23.4721,
+        lng: 120.4290,
+        coverImg: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=1200&q=80',
+        oldImg: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&q=80',
+        storyParagraphs: [
+          '每天早晨九點不到，活動中心前就停滿了長輩的代步四輪車與古董鐵馬。這裡是何庄社區發展協會的基地，也是凝聚社區長者向心力的心臟。',
+          '志工媽媽們清晨採買鄰近在地農夫栽種的時令芥菜、高麗菜與地瓜，用傳統灶火為八十多位社區高齡長輩烹煮熱騰騰的營養午餐。',
+          '牆上掛著社區大學學員手繪的庄內老地圖與彩繪陶片，充滿了草根的生機活力。'
+        ],
+        address: '嘉義市西區何庄里育人路鄰近',
+        tip: '每週一至週五上午有社區手作市集與志工活動，歡迎微笑點頭問好！',
+        nextSpotId: 'flower-path'
+      },
+      'flower-path': {
+        id: 'flower-path',
+        title: '頭港何庄田園漫步綠廊',
+        subtitle: 'Green Corridor & Rural Path',
+        category: '田園漫步',
+        badgeText: '四季田園風光',
+        highlight: '「微風吹拂稻浪，波斯菊花海與黃金稻穗交織的慢活自行車散步徑。」',
+        audioTimer: '01:30',
+        lat: 23.4746,
+        lng: 120.4255,
+        coverImg: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
+        oldImg: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80',
+        storyParagraphs: [
+          '沿著何庄外圍延伸的農路步道，是串聯鄰近頭港花海與農田的生態廊道。每逢秋冬休耕時節，廣植的大波斯菊與向日葵便將這片大地染成繽紛粉紅。',
+          '散步於此，遠眺水上方向開闊的天際線，偶爾還能看見飛機掠過天際的銀色機影，與腳下的靜謐農田形成鮮明的時空對比。',
+          '這條步道非常適合午後推著嬰兒車或騎乘單車慢慢閒晃，感受嘉義平原最質樸的泥土芬芳。'
+        ],
+        address: '何庄里外圍農田圳道旁（近玉山路與育人路田間）',
+        tip: '傍晚時分夕陽映照田水倒影最美，請隨手帶走個人垃圾維護田園清潔。',
+        nextSpotId: 'ayun-grocery'
+      }
+    };
+
+    // Global application state
+    let currentSpotId = 'ayun-grocery';
+    let currentView = 'spot'; // 'spot' or 'map'
+    let leafletMap = null;
+    let mapMarkers = {};
+    let isAudioPlaying = false;
+    let audioInterval = null;
+
+    // Route coordinates for polyline connecting the points
+    const WALKING_ROUTE = [
+      [23.4735, 120.4282], // 阿雲柑仔店
+      [23.4730, 120.4280],
+      [23.4728, 120.4271], // 遷村紀念牆
+      [23.4725, 120.4282],
+      [23.4721, 120.4290], // 社區活動中心
+      [23.4738, 120.4270],
+      [23.4746, 120.4255]  // 田園綠廊
+    ];
+
+    /**
+     * 初始化載入
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      // 1. 偵測 URL Query 參數（例如 ?spot=ayun-grocery）
+      const urlParams = new URLSearchParams(window.location.search);
+      const spotParam = urlParams.get('spot');
+      if (spotParam && HEZHUANG_SPOTS[spotParam]) {
+        currentSpotId = spotParam;
+      }
+
+      // 2. 渲染景點切換 Pills
+      renderSpotPills();
+
+      // 3. 渲染景點卡片內容
+      renderSpotContent(currentSpotId);
+
+      // 4. 重置比對滑塊位置
+      updateComparison(50);
+    });
+
+    /**
+     * 渲染頂部景點捷徑標籤
+     */
+    function renderSpotPills() {
+      const pillsContainer = document.getElementById('spotPills');
+      pillsContainer.innerHTML = '';
+
+      Object.values(HEZHUANG_SPOTS).forEach(spot => {
+        const isSelected = spot.id === currentSpotId;
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1 rounded-full text-xs font-medium transition-all ${
+          isSelected 
+            ? 'bg-clay-600 text-white shadow-sm' 
+            : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+        }`;
+        btn.textContent = spot.title;
+        btn.onclick = () => selectSpot(spot.id);
+        pillsContainer.appendChild(btn);
+      });
+    }
+
+    /**
+     * 選擇並切換景點
+     */
+    function selectSpot(spotId) {
+      if (!HEZHUANG_SPOTS[spotId]) return;
+      currentSpotId = spotId;
+
+      // 更新瀏覽器 URL 參數但不重整頁面（方便使用者分享特定點位）
+      const newUrl = `${window.location.pathname}?spot=${spotId}`;
+      window.history.replaceState({ path: newUrl }, '', newUrl);
+
+      // 停止音訊模擬
+      resetAudioDemo();
+
+      // 重新渲染
+      renderSpotPills();
+      renderSpotContent(spotId);
+
+      // 若地圖已存在，同步移動地圖
+      if (leafletMap && mapMarkers[spotId]) {
+        mapMarkers[spotId].openPopup();
+        leafletMap.panTo([HEZHUANG_SPOTS[spotId].lat, HEZHUANG_SPOTS[spotId].lng]);
+      }
+
+      // 平滑捲動至頂部
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /**
+     * 渲染景點所有內容到 DOM
+     */
+    function renderSpotContent(spotId) {
+      const data = HEZHUANG_SPOTS[spotId];
+      if (!data) return;
+
+      document.getElementById('spotTitle').textContent = data.title;
+      document.getElementById('spotSubtitle').textContent = data.subtitle;
+      document.getElementById('spotBadgeText').textContent = data.badgeText;
+      document.getElementById('spotHighlight').textContent = data.highlight;
+      document.getElementById('spotAddress').textContent = data.address;
+      document.getElementById('spotTip').textContent = data.tip;
+      document.getElementById('spotCoverImg').src = data.coverImg;
+      document.getElementById('compareOldImg').src = data.oldImg;
+      document.getElementById('comparePresentImg').src = data.coverImg;
+      document.getElementById('audioTimer').textContent = data.audioTimer;
+
+      // Google Navigation Link
+      const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}&travelmode=walking`;
+      document.getElementById('googleNavBtn').href = gmapUrl;
+
+      // Next spot button & title
+      const nextData = HEZHUANG_SPOTS[data.nextSpotId];
+      if (nextData) {
+        document.getElementById('nextSpotTitle').textContent = nextData.title;
+      }
+
+      // Story paragraphs
+      const storyContainer = document.getElementById('spotStoryContent');
+      storyContainer.innerHTML = '';
+      data.storyParagraphs.forEach(pText => {
+        const p = document.createElement('p');
+        p.textContent = pText;
+        storyContainer.appendChild(p);
+      });
+
+      // Update Mini Card in Map View
+      updateMiniCard(data);
+    }
+
+    /**
+     * 換到下一站
+     */
+    function nextSpot() {
+      const current = HEZHUANG_SPOTS[currentSpotId];
+      if (current && current.nextSpotId) {
+        selectSpot(current.nextSpotId);
+      }
+    }
+
+    /**
+     * 今昔照片滑桿邏輯
+     */
+    function updateComparison(val) {
+      const oldContainer = document.getElementById('compareOldContainer');
+      const handle = document.getElementById('compareHandle');
+      if (oldContainer && handle) {
+        oldContainer.style.width = `${val}%`;
+        handle.style.left = `${val}%`;
+      }
+    }
+
+    /**
+     * 音訊模擬播放控制
+     */
+    function toggleAudioDemo() {
+      const playBtnIcon = document.getElementById('audioBtnIcon');
+      const playBtnText = document.getElementById('audioBtnText');
+      const progress = document.getElementById('audioProgress');
+
+      if (!isAudioPlaying) {
+        isAudioPlaying = true;
+        playBtnIcon.className = 'ph ph-pause-fill text-sm';
+        playBtnText.textContent = '暫停口述導覽';
+        
+        let p = 30;
+        audioInterval = setInterval(() => {
+          p = (p + 3) % 100;
+          progress.style.width = `${p}%`;
+        }, 300);
+      } else {
+        resetAudioDemo();
+      }
+    }
+
+    function resetAudioDemo() {
+      isAudioPlaying = false;
+      clearInterval(audioInterval);
+      const playBtnIcon = document.getElementById('audioBtnIcon');
+      const playBtnText = document.getElementById('audioBtnText');
+      if (playBtnIcon && playBtnText) {
+        playBtnIcon.className = 'ph ph-play-fill text-sm';
+        playBtnText.textContent = '聆聽長輩說故事';
+      }
+    }
+
+    /**
+     * 切換地圖與景點視圖
+     */
+    function toggleView() {
+      if (currentView === 'spot') {
+        switchView('map');
+      } else {
+        switchView('spot');
+      }
+    }
+
+    function switchView(targetView) {
+      const spotView = document.getElementById('spotDetailView');
+      const mapView = document.getElementById('fullMapView');
+      const navIcon = document.getElementById('navIcon');
+      const navText = document.getElementById('navText');
+
+      currentView = targetView;
+
+      if (targetView === 'map') {
+        spotView.classList.add('hidden');
+        mapView.classList.remove('hidden');
+        navIcon.className = 'ph ph-article text-base text-clay-600';
+        navText.textContent = '景點故事';
+
+        // 初始化或更新 Leaflet 尺寸
+        initOrUpdateMap();
+      } else {
+        mapView.classList.add('hidden');
+        spotView.classList.remove('hidden');
+        navIcon.className = 'ph ph-map-trifold text-base text-clay-600';
+        navText.textContent = '全區地圖';
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /**
+     * 初始化 Leaflet 地圖
+     */
+    function initOrUpdateMap() {
+      if (!leafletMap) {
+        // 以何庄里中心 (約 23.4730, 120.4278) 為中心
+        leafletMap = L.map('map', {
+          zoomControl: false
+        }).setView([23.4730, 120.4278], 16);
+
+        // 自訂右下角 Zoom 控制按鈕
+        L.control.zoom({ position: 'topright' }).addTo(leafletMap);
+
+        // 溫暖風格圖磚底圖 (CartoDB Positron / OSM)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap contributors & CartoDB',
+          maxZoom: 19
+        }).addTo(leafletMap);
+
+        // 繪製步行推薦路線 Polyline (橘紅暖色)
+        const polyline = L.polyline(WALKING_ROUTE, {
+          color: '#B85834',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: '6, 8',
+          lineJoin: 'round'
+        }).addTo(leafletMap);
+
+        // 建立各景點自訂 Marker
+        Object.values(HEZHUANG_SPOTS).forEach(spot => {
+          // 自訂溫暖紅陶色圓形地標 Pin
+          const customIcon = L.divIcon({
+            className: 'custom-map-pin',
+            html: `
+              <div class="w-8 h-8 rounded-full bg-clay-600 border-2 border-white text-white flex items-center justify-center font-bold text-xs shadow-lg transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform">
+                <i class="ph ph-map-pin-fill"></i>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          });
+
+          const marker = L.marker([spot.lat, spot.lng], { icon: customIcon }).addTo(leafletMap);
+          
+          marker.on('click', () => {
+            selectSpot(spot.id);
+            updateMiniCard(spot);
+          });
+
+          // Popup
+          marker.bindPopup(`
+            <div class="p-3 w-48 text-stone-800">
+              <span class="text-[10px] text-clay-600 font-bold tracking-wider">${spot.category}</span>
+              <h4 class="font-bold text-sm mt-0.5 text-stone-900">${spot.title}</h4>
+              <p class="text-xs text-stone-500 mt-1 line-clamp-2">${spot.highlight}</p>
+              <button onclick="viewMiniCardSpot()" class="mt-2 text-xs bg-clay-600 text-white w-full py-1 rounded font-medium">查看景點介紹</button>
+            </div>
+          `);
+
+          mapMarkers[spot.id] = marker;
+        });
+
+      } else {
+        setTimeout(() => {
+          leafletMap.invalidateSize();
+        }, 200);
+      }
+
+      // 自動聚焦目前景點
+      if (HEZHUANG_SPOTS[currentSpotId]) {
+        const spot = HEZHUANG_SPOTS[currentSpotId];
+        leafletMap.panTo([spot.lat, spot.lng]);
+        if (mapMarkers[currentSpotId]) {
+          mapMarkers[currentSpotId].openPopup();
+        }
+      }
+    }
+
+    /**
+     * 更新地圖底部浮動卡片資訊
+     */
+    function updateMiniCard(spot) {
+      const miniImg = document.getElementById('miniCardImg');
+      const miniTitle = document.getElementById('miniCardTitle');
+      const miniCat = document.getElementById('miniCardCategory');
+      
+      if (miniImg && miniTitle && miniCat) {
+        miniImg.src = spot.coverImg;
+        miniTitle.textContent = spot.title;
+        miniCat.textContent = spot.category + ' • 點擊進入';
+      }
+    }
+
+    function viewMiniCardSpot() {
+      switchView('spot');
+    }
+
+    /**
+     * 地圖分類篩選
+     */
+    function filterMapCategory(cat) {
+      // 樣式更新
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        btn.classList.remove('bg-clay-600', 'text-white');
+        btn.classList.add('bg-stone-100', 'text-stone-600');
+      });
+      event.target.classList.remove('bg-stone-100', 'text-stone-600');
+      event.target.classList.add('bg-clay-600', 'text-white');
+
+      // 標記顯示/隱藏
+      Object.values(HEZHUANG_SPOTS).forEach(spot => {
+        const marker = mapMarkers[spot.id];
+        if (!marker) return;
+
+        if (cat === 'all' || spot.category === cat) {
+          if (!leafletMap.hasLayer(marker)) marker.addTo(leafletMap);
+        } else {
+          if (leafletMap.hasLayer(marker)) marker.remove();
+        }
+      });
+    }
+
+    /**
+     * 瀏覽器 GPS 定位
+     */
+    function locateUser() {
+      if (!navigator.geolocation) {
+        showToast('您的瀏覽器不支援地理定位');
+        return;
+      }
+      showToast('正在獲取您的衛星位置...');
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          
+          if (leafletMap) {
+            leafletMap.setView([lat, lng], 17);
+            
+            // 建立藍色使用者定位點
+            const userIcon = L.divIcon({
+              className: 'user-pos-pin',
+              html: `<div class="w-4 h-4 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-300 animate-pulse"></div>`,
+              iconSize: [16, 16]
+            });
+            L.marker([lat, lng], { icon: userIcon }).addTo(leafletMap).bindPopup('你在這裡！').openPopup();
+          }
+          showToast('已定位至您的目前位置');
+        },
+        (err) => {
+          showToast('無法取得位置，請確認已授權定位權限');
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+
+    /**
+     * 輕量 Toast 訊息提示元件
+     */
+    function showToast(msg) {
+      let toast = document.getElementById('customToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'customToast';
+        toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-stone-900/90 backdrop-blur-md text-white text-xs px-4 py-2 rounded-full shadow-lg transition-opacity duration-300 pointer-events-none opacity-0';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
