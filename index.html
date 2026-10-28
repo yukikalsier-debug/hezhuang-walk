@@ -758,10 +758,10 @@
         // 自訂右下角 Zoom 控制按鈕
         L.control.zoom({ position: 'topright' }).addTo(leafletMap);
 
-        // 溫暖風格圖磚底圖 (CartoDB Positron / OSM)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; OpenStreetMap contributors & CartoDB',
-          maxZoom: 19
+       // 官方原生開源底圖（永遠免費、免 API Key）
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
         }).addTo(leafletMap);
 
         // 繪製步行推薦路線 Polyline (橘紅暖色)
