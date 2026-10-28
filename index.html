@@ -720,7 +720,7 @@
       }
     }
 
-    function switchView(targetView) {
+   function switchView(targetView) {
       const spotView = document.getElementById('spotDetailView');
       const mapView = document.getElementById('fullMapView');
       const navIcon = document.getElementById('navIcon');
@@ -734,8 +734,21 @@
         navIcon.className = 'ph ph-article text-base text-clay-600';
         navText.textContent = '景點故事';
 
-        // 初始化或更新 Leaflet 尺寸
+        // 先執行初始化
         initOrUpdateMap();
+
+        // 🌟 核心修復：等瀏覽器把畫面完全打開後，強制命令地圖重新抓取尺寸與下載底圖
+        setTimeout(() => {
+          if (typeof leafletMap !== 'undefined' && leafletMap) {
+            leafletMap.invalidateSize();
+            if (typeof currentSpotId !== 'undefined' && HEZHUANG_SPOTS[currentSpotId]) {
+              const spot = HEZHUANG_SPOTS[currentSpotId];
+              leafletMap.panTo([spot.lat, spot.lng]);
+            } else {
+              leafletMap.panTo([23.4730, 120.4278]);
+            }
+          }
+        }, 300);
       } else {
         mapView.classList.add('hidden');
         spotView.classList.remove('hidden');
@@ -745,7 +758,7 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-   /**
+    /**
      * 初始化 Leaflet 地圖
      */
     function initOrUpdateMap() {
@@ -809,6 +822,7 @@
           mapMarkers[spot.id] = marker;
         });
       }
+    }
 
       // 關鍵修復：無論第一次還是第 N 次打開，都強制刷新尺寸並自動居中
       setTimeout(() => {
