@@ -410,8 +410,8 @@
             caption: '社區年末party'
           },
           {
-            img: './images/photo-2.jpg',
-            caption: '農耕古農具特寫'
+            img: './images/S__25633045.jpg',
+            caption: '古早味零食飲料'
           }
         ],
         storyParagraphs: [
@@ -594,7 +594,7 @@
       document.getElementById('comparePresentImg').src = data.coverImg;
       document.getElementById('audioTimer').textContent = data.audioTimer;
 
-      // Google Navigation Link
+   // Google Navigation Link
       const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}&travelmode=walking`;
       document.getElementById('googleNavBtn').href = gmapUrl;
 
@@ -610,8 +610,34 @@
       data.storyParagraphs.forEach(pText => {
         const p = document.createElement('p');
         p.textContent = pText;
+        p.className = 'mb-3 text-stone-700 leading-relaxed text-sm';
         storyContainer.appendChild(p);
       });
+
+      // 📸 歷年走讀與活動照片相簿 (自動生成)
+      if (data.gallery && data.gallery.length > 0) {
+        const galleryBox = document.createElement('div');
+        galleryBox.className = 'mt-6 pt-5 border-t border-stone-200';
+        galleryBox.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold text-stone-600 flex items-center">
+              <span class="mr-1.5">📷</span> 歷年走讀足跡與精彩照片
+            </h4>
+            <span class="text-[11px] text-stone-400 font-medium">共 ${data.gallery.length} 張</span>
+          </div>
+          <div class="flex space-x-3 overflow-x-auto pb-2" style="scrollbar-width: thin; -webkit-overflow-scrolling: touch;">
+            ${data.gallery.map(item => `
+              <div class="flex-shrink-0 w-44 space-y-1.5">
+                <div class="w-44 h-28 rounded-xl overflow-hidden bg-stone-100 shadow-sm border border-stone-200">
+                  <img src="${item.img}" class="w-full h-full object-cover hover:scale-105 transition duration-300" alt="${item.caption || '活動照片'}" loading="lazy">
+                </div>
+                <p class="text-xs text-stone-600 font-medium truncate px-0.5">${item.caption || ''}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        storyContainer.appendChild(galleryBox);
+      }
 
       // Update Mini Card in Map View
       updateMiniCard(data);
