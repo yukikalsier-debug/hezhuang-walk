@@ -745,12 +745,12 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /**
+   /**
      * 初始化 Leaflet 地圖
      */
     function initOrUpdateMap() {
       if (!leafletMap) {
-        // 以何庄里中心 (約 23.4730, 120.4278) 為中心
+        // 以何庄里中心 (育人路核心 23.4730, 120.4278) 為中心
         leafletMap = L.map('map', {
           zoomControl: false
         }).setView([23.4730, 120.4278], 16);
@@ -765,13 +765,15 @@
         }).addTo(leafletMap);
 
         // 繪製步行推薦路線 Polyline (橘紅暖色)
-        const polyline = L.polyline(WALKING_ROUTE, {
-          color: '#B85834',
-          weight: 4,
-          opacity: 0.85,
-          dashArray: '6, 8',
-          lineJoin: 'round'
-        }).addTo(leafletMap);
+        if (typeof WALKING_ROUTE !== 'undefined' && Array.isArray(WALKING_ROUTE) && WALKING_ROUTE.length > 0) {
+          L.polyline(WALKING_ROUTE, {
+            color: '#B85834',
+            weight: 4,
+            opacity: 0.85,
+            dashArray: '6, 8',
+            lineJoin: 'round'
+          }).addTo(leafletMap);
+        }
 
         // 建立各景點自訂 Marker
         Object.values(HEZHUANG_SPOTS).forEach(spot => {
@@ -806,21 +808,25 @@
 
           mapMarkers[spot.id] = marker;
         });
+      }
 
-      } else {
-        setTimeout(() => {
+      // 關鍵修復：無論第一次還是第 N 次打開，都強制刷新尺寸並自動居中
+      setTimeout(() => {
+        if (leafletMap) {
           leafletMap.invalidateSize();
-        }, 200);
-      }
-
-      // 自動聚焦目前景點
-      if (HEZHUANG_SPOTS[currentSpotId]) {
-        const spot = HEZHUANG_SPOTS[currentSpotId];
-        leafletMap.panTo([spot.lat, spot.lng]);
-        if (mapMarkers[currentSpotId]) {
-          mapMarkers[currentSpotId].openPopup();
+          
+          // 自動聚焦目前景點或預設中心
+          if (HEZHUANG_SPOTS[currentSpotId]) {
+            const spot = HEZHUANG_SPOTS[currentSpotId];
+            leafletMap.panTo([spot.lat, spot.lng]);
+            if (mapMarkers[currentSpotId]) {
+              mapMarkers[currentSpotId].openPopup();
+            }
+          } else {
+            leafletMap.panTo([23.4730, 120.4278]);
+          }
         }
-      }
+      }, 250);
     }
 
     /**
@@ -851,8 +857,10 @@
         btn.classList.remove('bg-clay-600', 'text-white');
         btn.classList.add('bg-stone-100', 'text-stone-600');
       });
-      event.target.classList.remove('bg-stone-100', 'text-stone-600');
-      event.target.classList.add('bg-clay-600', 'text-white');
+      if (event && event.target) {
+        event.target.classList.remove('bg-stone-100', 'text-stone-600');
+        event.target.classList.add('bg-clay-600', 'text-white');
+      }
 
       // 標記顯示/隱藏
       Object.values(HEZHUANG_SPOTS).forEach(spot => {
