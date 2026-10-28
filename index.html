@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>何庄社區散步地圖 | 走讀遷村記憶與聚落人情</title>
- 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -308,7 +305,7 @@
     </section>
 
 
-   <!-- ================= VIEW 2: INTERACTIVE LEAFLET MAP VIEW ================= -->
+    <!-- ================= VIEW 2: INTERACTIVE LEAFLET MAP VIEW ================= -->
     <section id="fullMapView" class="view-transition hidden space-y-4">
       
       <!-- Map Header & Filter Chips -->
@@ -333,18 +330,18 @@
         </div>
       </div>
 
-      <!-- Leaflet Map Canvas (已修正高度與層級) -->
-      <div class="relative w-full h-[65vh] min-h-[480px] rounded-3xl overflow-hidden border border-stone-200 shadow-inner">
-        <div id="map" class="w-full" style="height: 100%; min-height: 480px; width: 100%;"></div>
+      <!-- Leaflet Map Canvas -->
+      <div class="relative w-full h-[62vh] rounded-3xl overflow-hidden border border-stone-200 shadow-inner bg-stone-100">
+        <div id="map" class="w-full h-full z-10"></div>
         
         <!-- Walking route info floating box -->
-        <div class="absolute top-3 left-3 z-[400] bg-white/90 backdrop-blur-md px-3 py-2 rounded-xl border border-stone-200/80 shadow-md flex items-center gap-2">
+        <div class="absolute top-3 left-3 z-20 bg-white/90 backdrop-blur-md px-3 py-2 rounded-xl border border-stone-200/80 shadow-md flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <span class="text-xs font-medium text-stone-700">建議路線：約 1.8 公里 (步行約 28 分鐘)</span>
         </div>
 
         <!-- Back to Single Spot Card Float Button -->
-        <div class="absolute bottom-4 left-4 right-4 z-[400]">
+        <div class="absolute bottom-4 left-4 right-4 z-20">
           <div id="selectedSpotMiniCard" class="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-stone-200 flex items-center justify-between">
             <div class="flex items-center gap-3">
               <img id="miniCardImg" src="" alt="" class="w-12 h-12 rounded-xl object-cover border border-stone-200">
