@@ -568,6 +568,13 @@
 
       // 4. 重置比對滑塊位置
       updateComparison(50);
+
+      // 5. 相片放大時的鍵盤操作（← → 切換、Esc 關閉）
+      document.addEventListener('keydown', e => {
+        if (!lbSpotId) return;
+        if (e.key === 'Escape') closePhotoLightbox();
+        else if (e.key === 'ArrowLeft') stepLightbox(-1);
+        else if (e.key === 'ArrowRight') stepLightbox(1);
     });
 
     /**
@@ -657,7 +664,7 @@
         storyContainer.appendChild(p);
       });
 
-     // 📸 歷年走讀與活動照片相簿 (原尺寸 + 點擊放大)
+      // 📸 歷年走讀與活動照片相簿 (點擊放大，可左右切換)
       if (data.gallery && data.gallery.length > 0) {
         const galleryBox = document.createElement('div');
         galleryBox.className = 'mt-6 pt-5 border-t border-stone-200';
@@ -669,8 +676,8 @@
             <span class="text-[11px] text-stone-400 font-medium">共 ${data.gallery.length} 張（點擊放大）</span>
           </div>
           <div class="flex space-x-3 overflow-x-auto pb-2" style="scrollbar-width: thin; -webkit-overflow-scrolling: touch;">
-            ${data.gallery.map(item => `
-              <div class="flex-shrink-0 w-44 space-y-1.5 cursor-pointer" onclick="openPhotoLightbox('${item.img}', '${(item.caption || '').replace(/'/g, "\\'")}')">
+            ${data.gallery.map((item, idx) => `
+              <div class="flex-shrink-0 w-44 space-y-1.5 cursor-pointer" onclick="openPhotoLightbox('${spotId}', ${idx})">
                 <div class="w-44 h-28 rounded-xl overflow-hidden bg-stone-100 shadow-sm border border-stone-200">
                   <img src="${item.img}" class="w-full h-full object-cover hover:scale-105 transition duration-300" alt="${item.caption || '活動照片'}" loading="lazy">
                 </div>
@@ -953,46 +960,122 @@
       }, 2500);
     }
     /**
-     * 相簿照片點擊全螢幕放大 (Lightbox)
+     * 相簿照片點擊全螢幕放大 (Lightbox)，支援左右切換
      */
-    function openPhotoLightbox(imgSrc, captionText) {
-      let lightbox = document.getElementById('photoLightbox');
-      if (!lightbox) {
-        lightbox = document.createElement('div');
-        lightbox.id = 'photoLightbox';
-        lightbox.className = 'fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none';
-        lightbox.innerHTML = `
-          <button onclick="closePhotoLightbox()" class="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full text-xl z-10 transition">
-            <i class="ph ph-x"></i>
-          </button>
-          <div class="max-w-xl w-full flex flex-col items-center" onclick="event.stopPropagation()">
-            <img id="lightboxImg" src="" alt="大圖預覽" class="max-h-[75vh] w-auto max-w-full rounded-2xl shadow-2xl object-contain border border-white/10">
-            <p id="lightboxCaption" class="text-white text-sm mt-3 text-center font-medium bg-black/50 px-4 py-1.5 rounded-full"></p>
-          </div>
-        `;
-        lightbox.onclick = closePhotoLightbox;
-        document.body.appendChild(lightbox);
+    let lbSpotId = null;
+    let lbIndex = 0;
+
+    function buildLightbox() {
+      const lb = document.createElement('div');
+      lb.id = 'photoLightbox';
+      lb.className = 'fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none';
+      lb.innerHTML = `
+        <button onclick="closePhotoLightbox()" aria-label="關閉" class="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full text-xl z-10 transition">
+          <i class="ph ph-x"></i>
+        </button>
+        <div id="lbCounter" class="absolute top-6 left-1/2 -translate-x-1/2 text-white/90 text-xs font-medium bg-black/50 px-3 py-1 rounded-full"></div>
+
+        <button id="lbPrev" onclick="event.stopPropagation(); stepLightbox(-1)" aria-label="上一張" class="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 text-white/90 hover:text-white bg-white/10 hover:bg-white/25 w-11 h-11 rounded-full flex items-center justify-center text-xl z-10 transition">
+          <i class="ph ph-caret-left"></i>
+        </button>
+        <button id="lbNext" onclick="event.stopPropagation(); stepLightbox(1)" aria-label="下一張" class="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 text-white/90 hover:text-white bg-white/10 hover:bg-white/25 w-11 h-11 rounded-full flex items-center justify-center text-xl z-10 transition">
+          <i class="ph ph-caret-right"></i>
+        </button>
+
+        <div class="max-w-xl w-full flex flex-col items-center px-10 sm:px-0" onclick="event.stopPropagation()">
+          <img id="lightboxImg" src="" alt="大圖預覽" class="max-h-[72vh] w-auto max-w-full rounded-2xl shadow-2xl object-contain border border-white/10 transition-opacity duration-200">
+          <p id="lightboxCaption" class="text-white text-sm mt-3 text-center font-medium bg-black/50 px-4 py-1.5 rounded-full"></p>
+          <div id="lbDots" class="flex gap-1.5 mt-3"></div>
+        </div>
+      `;
+      lb.onclick = closePhotoLightbox;
+
+      // 手機左右滑動切換
+      let sx = 0, sy = 0;
+      lb.addEventListener('touchstart', e => {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+      }, { passive: true });
+      lb.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          stepLightbox(dx < 0 ? 1 : -1); // 向左滑 = 下一張
+        }
+      }, { passive: true });
+
+      document.body.appendChild(lb);
+      return lb;
+    }
+
+    function openPhotoLightbox(spotId, idx) {
+      if (!HEZHUANG_SPOTS[spotId] || !HEZHUANG_SPOTS[spotId].gallery[idx]) return;
+      lbSpotId = spotId;
+      lbIndex = idx;
+
+      const lb = document.getElementById('photoLightbox') || buildLightbox();
+      showLightboxPhoto();
+
+      lb.classList.remove('pointer-events-none', 'opacity-0');
+      lb.classList.add('opacity-100');
+      document.body.style.overflow = 'hidden'; // 避免背景跟著捲動
+    }
+
+    function showLightboxPhoto() {
+      const list = HEZHUANG_SPOTS[lbSpotId].gallery;
+      const item = list[lbIndex];
+      const many = list.length > 1;
+
+      const img = document.getElementById('lightboxImg');
+      img.style.opacity = '0.3';
+      img.onload = () => { img.style.opacity = '1'; };
+      img.src = item.img;
+      img.alt = item.caption || '活動照片';
+
+      const cap = document.getElementById('lightboxCaption');
+      cap.textContent = item.caption || '';
+      cap.style.display = item.caption ? 'inline-block' : 'none';
+
+      // 只有一張照片時，隱藏箭頭、張數與圓點
+      const counter = document.getElementById('lbCounter');
+      counter.textContent = `${lbIndex + 1} / ${list.length}`;
+      counter.style.display = many ? 'block' : 'none';
+      document.getElementById('lbPrev').style.display = many ? 'flex' : 'none';
+      document.getElementById('lbNext').style.display = many ? 'flex' : 'none';
+
+      const dots = document.getElementById('lbDots');
+      dots.innerHTML = '';
+      if (many) {
+        list.forEach((_, i) => {
+          const d = document.createElement('span');
+          d.className = `w-1.5 h-1.5 rounded-full ${i === lbIndex ? 'bg-white' : 'bg-white/35'}`;
+          dots.appendChild(d);
+        });
       }
 
-      document.getElementById('lightboxImg').src = imgSrc;
-      const capEl = document.getElementById('lightboxCaption');
-      if (captionText) {
-        capEl.textContent = captionText;
-        capEl.style.display = 'inline-block';
-      } else {
-        capEl.style.display = 'none';
-      }
+      // 預先載入前後兩張，切換比較順
+      [lbIndex - 1, lbIndex + 1].forEach(i => {
+        const n = list[(i + list.length) % list.length];
+        if (n) new Image().src = n.img;
+      });
+    }
 
-      lightbox.classList.remove('pointer-events-none', 'opacity-0');
-      lightbox.classList.add('opacity-100');
+    function stepLightbox(dir) {
+      if (!lbSpotId) return;
+      const list = HEZHUANG_SPOTS[lbSpotId].gallery;
+      if (list.length < 2) return;
+      lbIndex = (lbIndex + dir + list.length) % list.length; // 首尾循環
+      showLightboxPhoto();
     }
 
     function closePhotoLightbox() {
-      const lightbox = document.getElementById('photoLightbox');
-      if (lightbox) {
-        lightbox.classList.add('opacity-0', 'pointer-events-none');
-        lightbox.classList.remove('opacity-100');
+      const lb = document.getElementById('photoLightbox');
+      if (lb) {
+        lb.classList.add('opacity-0', 'pointer-events-none');
+        lb.classList.remove('opacity-100');
       }
+      document.body.style.overflow = '';
+      lbSpotId = null;
     }
   </script>
 </body>
